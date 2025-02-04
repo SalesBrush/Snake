@@ -107,6 +107,19 @@ def draw_obstacles(obstacles):
     for obstacle in obstacles:
         pygame.draw.rect(screen, BLUE, [obstacle[0], obstacle[1], BLOCK_SIZE, BLOCK_SIZE])
 
+# Wrap snake around the screen
+def wrap_around(position):
+    x, y = position
+    if x >= WIDTH:
+        x = 0
+    elif x < 0:
+        x = WIDTH - BLOCK_SIZE
+    if y >= HEIGHT:
+        y = 0
+    elif y < 0:
+        y = HEIGHT - BLOCK_SIZE
+    return (x, y)
+
 # Main game loop
 def game_loop():
     game_over = False
@@ -177,12 +190,11 @@ def game_loop():
                     y_change = BLOCK_SIZE
                     x_change = 0
 
-        # Check if snake hits the wall
-        if x >= WIDTH or x < 0 or y >= HEIGHT or y < 0:
-            game_close = True
-
+        # Wrap snake around the screen
         x += x_change
         y += y_change
+        x, y = wrap_around((x, y))
+
         draw_gradient_background()
 
         # Draw food with pulsating effect
