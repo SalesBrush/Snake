@@ -1,17 +1,19 @@
 import pygame
-import time
 import random
+import math
 
 # Initialize Pygame
 pygame.init()
 
 # Colors
 WHITE = (255, 255, 255)
-YELLOW = (255, 255, 102)
 BLACK = (0, 0, 0)
-RED = (213, 50, 80)
+RED = (255, 0, 0)
 GREEN = (0, 255, 0)
-BLUE = (50, 153, 213)
+BLUE = (0, 0, 255)
+YELLOW = (255, 255, 0)
+GRADIENT_START = (30, 30, 30)
+GRADIENT_END = (10, 10, 10)
 
 # Display dimensions
 WIDTH = 800
@@ -22,7 +24,7 @@ BLOCK_SIZE = 20
 
 # Initialize display
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Snake Game")
+pygame.display.set_caption("Snake Game with Fancy Graphics")
 
 # Clock to control game speed
 clock = pygame.time.Clock()
@@ -31,23 +33,82 @@ clock = pygame.time.Clock()
 font_style = pygame.font.SysFont("bahnschrift", 25)
 score_font = pygame.font.SysFont("comicsansms", 35)
 
+# Particle class for effects
+class Particle:
+    def __init__(self, x, y, color):
+        self.x = x
+        self.y = y
+        self.color = color
+        self.size = random.randint(5, 10)
+        self.speed_x = random.uniform(-2, 2)
+        self.speed_y = random.uniform(-2, 2)
+        self.lifetime = 30
+
+    def update(self):
+        self.x += self.speed_x
+        self.y += self.speed_y
+        self.lifetime -= 1
+
+    def draw(self):
+        if self.lifetime > 0:
+            pygame.draw.circle(screen, self.color, (int(self.x), int(self.y)), self.size)
+
+# Gradient background
+def draw_gradient_background():
+    for y in range(HEIGHT):
+        r = GRADIENT_START[0] + (GRADIENT_END[0] - GRADIENT_START[0]) * y / HEIGHT
+        g = GRADIENT_START[1] + (GRADIENT_END[1] - GRADIENT_START[1]) * y / HEIGHT
+        b = GRADIENT_START[2] + (GRADIENT_END[2] - GRADIENT_START[2]) * y / HEIGHT
+        pygame.draw.line(screen, (int(r), int(g), int(b)), (0, y), (WIDTH, y))
+
+# Draw rounded rectangle
+def draw_rounded_rect(surface, color, rect, radius):
+    pygame.draw.rect(surface, color, rect, border_radius=radius)
+
+# Draw glowing circle
+def draw_glowing_circle(x, y, radius, color):
+    for i in range(3):
+        glow_radius = radius + i * 3
+        alpha = 100 - i * 30
+        glow_surface = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
+        pygame.draw.circle(glow_surface, (*color, alpha), (glow_radius, glow_radius), glow_radius)
+        screen.blit(glow_surface, (x - glow_radius, y - glow_radius))
+    pygame.draw.circle(screen, color, (x, y), radius)
+
+# Display score
 def display_score(score):
-    """Display the current score."""
     value = score_font.render("Your Score: " + str(score), True, YELLOW)
     screen.blit(value, [10, 10])
 
-def draw_snake(block_size, snake_list):
-    """Draw the snake on the screen."""
-    for block in snake_list:
-        pygame.draw.rect(screen, GREEN, [block[0], block[1], block_size, block_size])
+# Draw snake
+def draw_snake(snake_list):
+    for i, block in enumerate(snake_list):
+        x, y = block
+        if i == 0:
+            # Draw snake head with glow
+            draw_glowing_circle(x + BLOCK_SIZE // 2, y + BLOCK_SIZE // 2, BLOCK_SIZE // 2, GREEN)
+        else:
+            # Draw snake body with rounded rectangles
+            draw_rounded_rect(screen, GREEN, [x, y, BLOCK_SIZE, BLOCK_SIZE], 5)
 
-def display_message(msg, color):
-    """Display a message on the screen."""
-    mesg = font_style.render(msg, True, color)
-    screen.blit(mesg, [WIDTH / 6, HEIGHT / 3])
+# Draw food with pulsating effect
+def draw_food(x, y, pulse):
+    radius = BLOCK_SIZE // 2 + int(5 * math.sin(pulse))
+    draw_glowing_circle(x + BLOCK_SIZE // 2, y + BLOCK_SIZE // 2, radius, RED)
 
+# Draw particles
+def draw_particles(particles):
+    for particle in particles:
+        particle.update()
+        particle.draw()
+
+# Draw obstacles
+def draw_obstacles(obstacles):
+    for obstacle in obstacles:
+        pygame.draw.rect(screen, BLUE, [obstacle[0], obstacle[1], BLOCK_SIZE, BLOCK_SIZE])
+
+# Main game loop
 def game_loop():
-    """Main game loop."""
     game_over = False
     game_close = False
 
@@ -65,24 +126,28 @@ def game_loop():
     food_x = round(random.randrange(0, WIDTH - BLOCK_SIZE) / BLOCK_SIZE) * BLOCK_SIZE
     food_y = round(random.randrange(0, HEIGHT - BLOCK_SIZE) / BLOCK_SIZE) * BLOCK_SIZE
 
-    # Special food (reward)
-    special_food_x = -1
-    special_food_y = -1
-    special_food_active = False
+    # Particles
+    particles = []
+
+    # Pulse effect for food
+    pulse = 0
 
     # Obstacles
-    obstacles = [
-        (200, 200),
-        (400, 400),
-        (600, 100),
-    ]
+    obstacles = []
+    for _ in range(3):  # Initial number of obstacles
+        obstacle_x = round(random.randrange(0, WIDTH - BLOCK_SIZE) / BLOCK_SIZE) * BLOCK_SIZE
+        obstacle_y = round(random.randrange(0, HEIGHT - BLOCK_SIZE) / BLOCK_SIZE) * BLOCK_SIZE
+        obstacles.append((obstacle_x, obstacle_y))
 
     # Score
     score = 0
 
+    # Game speed
+    game_speed = 15
+
     while not game_over:
         while game_close:
-            screen.fill(BLUE)
+            screen.fill(BLACK)
             display_message("You Lost! Press Q-Quit or C-Play Again", RED)
             display_score(score)
             pygame.display.update()
@@ -118,18 +183,17 @@ def game_loop():
 
         x += x_change
         y += y_change
-        screen.fill(BLACK)
+        draw_gradient_background()
 
-        # Draw food
-        pygame.draw.rect(screen, RED, [food_x, food_y, BLOCK_SIZE, BLOCK_SIZE])
+        # Draw food with pulsating effect
+        draw_food(food_x, food_y, pulse)
+        pulse += 0.1
 
-        # Draw special food (if active)
-        if special_food_active:
-            pygame.draw.rect(screen, YELLOW, [special_food_x, special_food_y, BLOCK_SIZE, BLOCK_SIZE])
+        # Draw particles
+        draw_particles(particles)
 
         # Draw obstacles
-        for obstacle in obstacles:
-            pygame.draw.rect(screen, WHITE, [obstacle[0], obstacle[1], BLOCK_SIZE, BLOCK_SIZE])
+        draw_obstacles(obstacles)
 
         # Snake head
         snake_head = [x, y]
@@ -138,16 +202,19 @@ def game_loop():
             del snake_list[0]
 
         # Check if snake collides with itself
-        for block in snake_list[:-1]:
+        for i, block in enumerate(snake_list[:-1]):
             if block == snake_head:
-                game_close = True
+                # Cut the snake by the amount it overlaps
+                snake_list = snake_list[:i]
+                snake_length = len(snake_list)
+                break
 
         # Check if snake collides with obstacles
         for obstacle in obstacles:
             if x == obstacle[0] and y == obstacle[1]:
                 game_close = True
 
-        draw_snake(BLOCK_SIZE, snake_list)
+        draw_snake(snake_list)
         display_score(score)
 
         pygame.display.update()
@@ -159,18 +226,21 @@ def game_loop():
             snake_length += 1
             score += 1
 
-            # Activate special food randomly
-            if random.randint(1, 10) == 1:
-                special_food_x = round(random.randrange(0, WIDTH - BLOCK_SIZE) / BLOCK_SIZE) * BLOCK_SIZE
-                special_food_y = round(random.randrange(0, HEIGHT - BLOCK_SIZE) / BLOCK_SIZE) * BLOCK_SIZE
-                special_food_active = True
+            # Add particles
+            for _ in range(20):
+                particles.append(Particle(x + BLOCK_SIZE // 2, y + BLOCK_SIZE // 2, YELLOW))
 
-        # Check if snake eats special food
-        if special_food_active and x == special_food_x and y == special_food_y:
-            score += 5
-            special_food_active = False
+            # Increase obstacles every 100 points
+            if score % 100 == 0:
+                obstacle_x = round(random.randrange(0, WIDTH - BLOCK_SIZE) / BLOCK_SIZE) * BLOCK_SIZE
+                obstacle_y = round(random.randrange(0, HEIGHT - BLOCK_SIZE) / BLOCK_SIZE) * BLOCK_SIZE
+                obstacles.append((obstacle_x, obstacle_y))
 
-        clock.tick(15)
+            # Increase speed every 1000 points
+            if score % 1000 == 0:
+                game_speed += 2
+
+        clock.tick(game_speed)
 
     pygame.quit()
     quit()
