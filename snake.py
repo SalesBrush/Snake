@@ -216,9 +216,13 @@ def game_loop():
         # Check if snake collides with itself
         for i, block in enumerate(snake_list[:-1]):
             if block == snake_head:
-                # Cut the snake by the amount it overlaps
-                snake_list = snake_list[:i]
-                snake_length = len(snake_list)
+                # If the snake fully overlaps with itself, game over
+                if i == 0:
+                    game_close = True
+                else:
+                    # Cut the snake by the amount it overlaps
+                    snake_list = snake_list[:i]
+                    snake_length = len(snake_list)
                 break
 
         # Check if snake collides with obstacles
@@ -242,14 +246,14 @@ def game_loop():
             for _ in range(20):
                 particles.append(Particle(x + BLOCK_SIZE // 2, y + BLOCK_SIZE // 2, YELLOW))
 
-            # Increase obstacles every 100 points
-            if score % 100 == 0:
+            # Increase obstacles every 10 points
+            if score % 10 == 0:
                 obstacle_x = round(random.randrange(0, WIDTH - BLOCK_SIZE) / BLOCK_SIZE) * BLOCK_SIZE
                 obstacle_y = round(random.randrange(0, HEIGHT - BLOCK_SIZE) / BLOCK_SIZE) * BLOCK_SIZE
                 obstacles.append((obstacle_x, obstacle_y))
 
-            # Increase speed every 1000 points
-            if score % 1000 == 0:
+            # Increase speed every 100 points
+            if score % 100 == 0:
                 game_speed += 2
 
         clock.tick(game_speed)
